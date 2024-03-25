@@ -1,24 +1,27 @@
 package org.fall;
 
 import java.util.*;
+
+import org.fall.Player.Game.Rotation;
+
 import java.io.*;
 import java.math.*;
 
 class Player {
     public static class Game {
-        private enum Rotation {
+        public enum Rotation {
             None,
             Right,
             Left
         }
 
-        private static class EnterDirection {
+        public static class EnterDirection {
             public static final String Top = "TOP";
             public static final String Left = "LEFT";
             public static final String Right = "RIGHT";
         }
 
-        private static class Command {
+        public static class Command {
             public static final String Wait = "WAIT";
 
             public static String Left(int row, int col) {
@@ -216,8 +219,6 @@ class Player {
             Queue<State> worker = new PriorityQueue<>();
             worker.add(start);
 
-            Queue<State> validPaths = new PriorityQueue<>();
-
             while (worker.size() > 0) {
                 State current = worker.poll();
                 State next = getNextState(current.row, current.col, current.enterDirection, current.cellType,
@@ -229,7 +230,7 @@ class Player {
 
                 next.traveledPath.add(current);
                 if (next.row == _height - 1 && next.col == _exitCol) {
-                    validPaths.add(next);
+                    _validIndyPaths.add(next);
                 } else {
                     if (next.cellType < 2) {
                         worker.add(next);
@@ -244,7 +245,11 @@ class Player {
                 }
             }
 
-            State validPath = validPaths.poll();
+            return getMoves();
+        }
+
+        public List<String> getMoves() {
+            State validPath = _validIndyPaths.poll();
             List<String> moves = new ArrayList<>();
             for (State curr : validPath.traveledPath) {
                 int cellDiff = curr.cellType - _grid[curr.row][curr.col];
@@ -258,6 +263,25 @@ class Player {
                 }
             }
             return moves;
+
+        }
+
+        private Queue<State> _validIndyPaths = new PriorityQueue<>();
+
+        public boolean move(String command) {
+            String[] parts = command.split("\s+");
+            int col = Integer.parseInt(parts[0]);
+            int row = Integer.parseInt(parts[1]);
+            Rotation rotation = parts[2].equals("RIGHT") ? Rotation.Right : Rotation.Left;
+
+            if (row < 0 || col < 0 || row > _width - 1 || col > _height - 1) {
+                return false;
+            }
+
+            int rotatedCellType = rotateCell(_grid[row][col], rotation);
+            _grid[row][col] = rotatedCellType;
+
+            return true;
         }
     }
 
@@ -287,12 +311,16 @@ class Player {
 
         int loop = 0;
         List<String> moves = new ArrayList<>();
+        HashSet<Integer> indyVisited = new HashSet<>();
 
         // game loop
         while (true) {
             int xIndy = in.nextInt();
             int yIndy = in.nextInt();
             String posIndy = in.next(); // indy enters this cell from: TOP, LEFT, or RIGHT
+
+            int indyVisitedHash = yIndy * 100 + xIndy;
+            indyVisited.add(indyVisitedHash);
 
             if (loop == 0) {
                 moves = game.bfs(yIndy, xIndy, posIndy);
@@ -303,6 +331,15 @@ class Player {
                 int xRock = in.nextInt();
                 int yRock = in.nextInt();
                 String POSR = in.next();
+
+                int rockHash = yRock * 100 + xRock;
+                if (indyVisited.contains(rockHash)) {
+                    continue;
+                }
+
+                // 1) get rock path
+                // 2) check if rock will hit indy
+                // 3) 
             }
 
             // Write an action using System.out.println()
@@ -310,7 +347,11 @@ class Player {
 
             // One line containing on of three commands: 'X Y LEFT', 'X Y RIGheightT' or
             // 'WAIT'
-            String command = loop < moves.size() ? moves.get(loop) : "WAIT";
+            String command = 'WAIT';
+            if (loop < moves.size()) {
+                command = moves.get(loop);
+                game.move(command);
+            }
             loop++;
             System.out.println(command);// moves[loop++]);
         }
